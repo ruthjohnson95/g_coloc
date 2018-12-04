@@ -148,7 +148,7 @@ def main():
 
     # set seed
     np.random.seed(seed)
-    
+
     # read in and parse p_sim
     p_sim= [float(item) for item in options.p_sim.split(',')]
 
