@@ -22,6 +22,43 @@ def print_func(line, f):
     return
 
 
+def initialize_p(beta_tilde_1, beta_tilde_2, h1, h2, N1, N2):
+    thresh = 4.0 # fixed amount
+    C00, C10, C01, C11 = 0,0,0,0
+    z1 = np.multiply(beta_tilde_1, math.sqrt(N1))
+    z2 = np.multiply(beta_tilde_2, math.sqrt(N2))
+    C_1_init = np.zeros(M)
+    C_2_init = np.zeros(M)
+
+    for z1_m, z2_m in zip(z1, z2):
+        if z1_m > thresh and z2_m > thresh:
+            C11 += 1
+            C_1_init[m] = 1
+            C_2_init[m] = 1
+        elif z1_m > thresh and z2_m < thresh:
+            C10 += 1
+            C_1_init[m] = 1
+            C_2_init[m] = 0
+        elif z1_m < thresh and z2_m > thresh:
+            C01 += 1
+            C_1_init[m] = 0
+            C_2_init[m] = 1
+        else:
+            C00 += 1
+            C_1_init[m] = 0
+            C_2_init[m] = 0
+
+    M = len(beta_tilde_1)
+
+    p_init = np.divide([C00, C10, C01, C11], M)
+    sigma_g_1 = h1 / (M*(p_init[1]+p_init[3]))
+    sigma_g_2 = h2 / (M*(p_init[2]+p_init[3]))
+    gamma_1_init = st.norm.rvs(0, sigma_g_1, size=M)
+    gamma_2_init = st.norm.rvs(0, sigma_g_2, size=M)
+
+    return p_init, gamma_1_init, gamma_2_init, C_1_init, C_2_init
+
+
 def three_matrix_mul(A, B, C):
     BC = np.matmul(B,C)
     ABC = np.matmul(np.transpose(A), BC)
@@ -126,7 +163,7 @@ def sample_C_gamma_m(m, p_t, C_1_t, C_2_t, gamma_1_t, gamma_2_t, h1, h2, rho, rh
     return C_1m_t, C_2m_t, gamma_1m_t, gamma_2m_t
 
 
-def gibbs(p_init, gamma_init, C_init, h1, h2, rho, rho_e, N1, N2, Ns, W, z1, z2, its, f):
+def gibbs(p_init, gamma_1_init, gamma_2_init, C_1_init, C_2_init, h1, h2, rho, rho_e, N1, N2, Ns, W, z1, z2, its, f):
 
     # get number of SNPs
     M = len(z1)
@@ -135,10 +172,10 @@ def gibbs(p_init, gamma_init, C_init, h1, h2, rho, rho_e, N1, N2, Ns, W, z1, z2,
     p_list = []
     C_list = np.zeros((M, 4))
 
-    gamma_1_t = gamma_init[:M]
-    gamma_2_t = gamma_init[M:]
-    C_1_t = C_init[:M]
-    C_2_t = C_init[M:]
+    gamma_1_t = gamma_1_init
+    gamma_2_t = gamma_2_init
+    C_1_t = C_1_init
+    C_2_t = C_2_init
 
     logging.info("Starting sampler")
     for i in range(0, its):
@@ -214,10 +251,10 @@ def gibbs(p_init, gamma_init, C_init, h1, h2, rho, rho_e, N1, N2, Ns, W, z1, z2,
 def main():
     parser = OptionParser()
     parser.add_option("--name", dest="name", default="sim")
-    parser.add_option("--gwas_file", dest="gwas_file")
-    parser.add_option("--ld_half_file", dest="ld_half_file")
+    parser.add_option("--gwas_file", dest="gwas_file", default="/Users/ruthiejohnson/Development/mixture_unity/data/sim.2018.txt")
+    parser.add_option("--ld_half_file", dest="ld_half_file", default="/Users/ruthiejohnson/Development/mixture_unity/data/identity.100.ld")
     parser.add_option("--seed", dest="seed", default=100)
-    parser.add_option("--outdir", dest="outdir", default="/Users/ruthiejohnson/Development/mixture_unity")
+    parser.add_option("--outdir", dest="outdir", default="/Users/ruthiejohnson/Development/mixture_unity/results")
     parser.add_option("--h1", dest="h1", default="0.05")
     parser.add_option("--h2", dest="h2", default="0.05")
     parser.add_option("--rhoG", dest="rhoG", default="0")
@@ -231,31 +268,46 @@ def main():
     (options, args) = parser.parse_args()
 
     # parse command line args
+    name = options.name
+    outdir = options.outdir
+    h1 = float(options.h1)
+    h2 = float(options.h2)
+    rhoG = float(options.rhoG)
+    rhoE = float(options.rhoE)
+    N1 = int(options.N1)
+    N2 = int(options.N2)
+    Ns = int(options.Ns)
+    M = int(options.M)
 
     # set seed
+    seed = int(options.seed)
     np.random.seed(seed)
 
     # log file
-    logfile = os.path.join(outdir, name +'.'+str(seed)+'gcoloc.log')
+    logfile = os.path.join(outdir, name +'.'+str(seed)+'.gcoloc.log')
     f = open(logfile, 'w')
 
     # read in gwas
     df = pd.read_csv(gwas_file, sep=' ')
-    beta_tilde_1 = np.asarray(df['BETA_STD_1_I'])
-    beta_tilde_2 = np.asarray(df['BETA_STD_2_I'])
+    #beta_tilde_1 = np.asarray(df['BETA_STD_1_I'])
+    #beta_tilde_2 = np.asarray(df['BETA_STD_2_I'])
+    beta_tilde_1 = np.asarray(df['BETA_STD_1'])
+    beta_tilde_2 = np.asarray(df['BETA_STD_2'])
 
     # read in LD file
     ld_half_file = options.ld_half_file
     W_ii = np.loadtxt(ld_half_file)
-    W = # TODO
+    zeros = np.zeros((M,M))
+    W = np.block([[W, zeros],[zeros,W]])
     logging.info("Using ld half file: %s" % ld_half_file)
 
     # initialize values
+    # TODO
     p_init = initialize_p(beta_tilde_1, beta_tilde_2)
-    C_init, gamma_init = initialize_C_gamma(p_init, h1, h2, rho, M)
+    p_init, gamma_1_init, gamma_2_init, C_1_init, C_2_init = initialize_C_gamma(p_init, h1, h2, rho, M)
 
     # Gibbs sampler
-    post_prob_C = gibbs(p_init, gamma_init, C_init, h1, h2, rho, rho_e, N1, N2, Ns, W, its, f)
+    post_prob_C = gibbs(p_init, gamma_1_init, gamma_2_init, C_1_init, C_2_init, h1, h2, rhoG, rho_e, N1, N2, Ns, W, its, f)
 
     # save posterior probability matrix
     r_df = {'C00': post_prob_C[:,0], 'C10': post_prob_C[:,1], 'C01': post_prob_C[:,2], 'C11': post_prob_C[:,3]}
