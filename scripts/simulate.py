@@ -97,7 +97,7 @@ def simulate_locus(p_vec, h1, h2, rho, rho_e, N1, N2, Ns, M, V):
     C_true = np.sum(C, axis=1) # sum across the rows
 
     sigma_e_1 = (1 - h1) / N1
-    sigma_e_2 = (1 - h2) / N1
+    sigma_e_2 = (1 - h2) / N2
     cov_e = rho_e*math.sqrt(sigma_e_1)*math.sqrt(sigma_e_2)
     sigma_e_s = (cov_e*Ns)/float(N1*N2)
 
@@ -119,15 +119,15 @@ def main():
     parser = OptionParser()
     parser.add_option("--name", dest="name", default="sim")
     parser.add_option("--p_sim", dest="p_sim", default=".95,.01,.01,.03")
-    parser.add_option("--h1_sim", dest="h1_sim", default="0.05")
-    parser.add_option("--h2_sim", dest="h2_sim", default="0.05")
+    parser.add_option("--h1_sim", dest="h1_sim", default="0.15")
+    parser.add_option("--h2_sim", dest="h2_sim", default="0.15")
     parser.add_option("--rhoG_sim", dest="rhoG_sim", default="0")
     parser.add_option("--rhoE_sim", dest="rhoE_sim", default="0")
-    parser.add_option("--N1", dest="N1", default="100000")
-    parser.add_option("--N2", dest="N2", default="100000")
+    parser.add_option("--N1", dest="N1", default="500")
+    parser.add_option("--N2", dest="N2", default="500")
     parser.add_option("--Ns", dest="Ns", default="0")
     parser.add_option("--M", dest="M", default="100")
-    parser.add_option("--ld_file", dest="ld_file", default="/Users/ruthiejohnson/Development/g_coloc/data/identity.100.ld")
+    parser.add_option("--ld_file", dest="ld_file", default="/Users/ruthiejohnson/Development/g_coloc/data/ukbb.100.ld")
     parser.add_option("--seed", dest="seed", default="2018")
     parser.add_option("--outdir", dest="outdir", default="/Users/ruthiejohnson/Development/g_coloc/data")
 
